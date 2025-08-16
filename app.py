@@ -3,7 +3,7 @@ import streamlit as st
 from PIL import Image
 import numpy as np
 import pickle
-from feature_extractor import FeatureExtractorClip
+from feature_extractor import FeatureExtractorSiglip2
 
 # --- Cấu hình trang ---
 st.set_page_config(page_title="Hệ thống Truy vấn Đa phương tiện", layout="wide")
@@ -13,7 +13,7 @@ st.set_page_config(page_title="Hệ thống Truy vấn Đa phương tiện", lay
 @st.cache_resource
 def load_model():
     """Tải model một lần duy nhất."""
-    return FeatureExtractorClip()
+    return FeatureExtractorSiglip2()
 
 @st.cache_data
 def load_indexed_data(file_path):

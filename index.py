@@ -3,14 +3,14 @@ import os
 import pickle
 from tqdm import tqdm
 import numpy as np
-from feature_extractor import FeatureExtractorClip
+from feature_extractor import FeatureExtractorSiglip2
 
 # --- Cấu hình ---
 DATASET_PATH = "dataset/"  # Đường dẫn đến thư mục chứa ảnh
 
 # --- Bắt đầu quá trình ---
 if __name__ == "__main__":
-    fe = FeatureExtractorClip()
+    fe = FeatureExtractorSiglip2()
 
     # Danh sách để lưu đường dẫn ảnh và đặc trưng
     img_paths = []

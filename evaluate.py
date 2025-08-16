@@ -5,10 +5,11 @@ import os
 from pycocotools.coco import COCO
 from sklearn.metrics import average_precision_score
 from tqdm import tqdm
-from feature_extractor import FeatureExtractorClip
+from feature_extractor import FeatureExtractorSiglip2
 
 # --- Cấu hình ---
 ANNOTATIONS_FILE = "annotations/captions_val2017.json"  # Tải từ https://cocodataset.org/#download
+# ANNOTATIONS_FILE = "annotations/captions_train2017.json"  # Tải từ https://cocodataset.org/#download
 NUM_QUERIES = 50  # Tối thiểu 50 queries theo yêu cầu bài tập
 DATASET_PATH = "dataset/"  # Thư mục chứa ảnh MS COCO (val2017)
 
@@ -18,7 +19,7 @@ def extract_image_id_from_path(path):
     return int(filename.split('.')[0].lstrip('0'))
 
 if __name__ == "__main__":
-    fe = FeatureExtractorClip()
+    fe = FeatureExtractorSiglip2()
 
     # Tải features
     with open(fe.FEATURES_FILE, "rb") as f:
