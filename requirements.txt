@@ -1,0 +1,8 @@
+numpy
+torch
+transformers
+Pillow
+tqdm
+streamlit
+scikit-learn
+pycocotools
