@@ -4,4 +4,7 @@ __pycache__/
 **.jpg
 **.json
 !db_captions.json
+!result_blip2.json
+!result_siglip.json
+!result_clip.json
 *_finetuned_coco/
