@@ -3,3 +3,5 @@ dataset/
 __pycache__/
 *.zip
 **.jpg
+**.json
+*_finetuned_coco/
