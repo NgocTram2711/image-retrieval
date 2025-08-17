@@ -1,7 +1,7 @@
 dataset/
-*.pkl
 __pycache__/
 *.zip
 **.jpg
 **.json
+!db_captions.json
 *_finetuned_coco/
