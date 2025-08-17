@@ -7,34 +7,37 @@ from transformers import (
     AutoProcessor, Blip2ForConditionalGeneration,
     AutoImageProcessor, Dinov2Model
 )
+import os
 
 class FeatureExtractorClip:
     """
-    Trình trích xuất đặc trưng sử dụng mô hình CLIP của OpenAI.
-    Lưu ý: Các đặc trưng được chuẩn hóa L2.
+    Sử dụng mô hình CLIP đã được fine-tune.
     """
-    FEATURES_FILE = "clip_finetuned_coco/features_clip.pkl"
+    # ĐÃ SỬA: Tên file features đồng bộ với evaluate.py
+    FEATURES_FILE = "features_clip.pkl" 
 
     def __init__(self, device="cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
-        # model_name = "openai/clip-vit-large-patch14"
-        model_name = "./clip_finetuned_coco"
+        # ĐÃ SỬA: Tải model đã fine-tune từ thư mục cục bộ
+        model_name = "./clip_finetuned_coco" 
+        
+        if not os.path.exists(model_name):
+            print(f"LỖI: Không tìm thấy thư mục model đã fine-tune '{model_name}'.")
+            print("Vui lòng chạy script fine-tuning trước.")
+            exit(1)
+
         try:
             self.processor = CLIPProcessor.from_pretrained(model_name)
             self.model = CLIPModel.from_pretrained(model_name, torch_dtype=torch.float16).to(self.device)
-            print(f"✅ Model CLIP loaded from {model_name}. Running on: {self.device.upper()}")
+            print(f"✅ Model CLIP đã fine-tune được tải từ '{model_name}'. Đang chạy trên: {self.device.upper()}")
         except Exception as e:
             print(f"LỖI: Không thể tải mô hình từ {model_name}: {e}")
-            print("Vui lòng đảm bảo thư mục ./clip_finetuned_coco chứa mô hình và processor đã được lưu đúng cách.")
             exit(1)
 
     def _extract_features(self, inputs, feature_type):
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
-            if feature_type == "image":
-                features = self.model.get_image_features(**inputs)
-            else:
-                features = self.model.get_text_features(**inputs)
+            features = self.model.get_image_features(**inputs) if feature_type == "image" else self.model.get_text_features(**inputs)
         features = features / features.norm(dim=-1, keepdim=True)
         return features.cpu().numpy().flatten()
 
@@ -49,30 +52,40 @@ class FeatureExtractorClip:
 
 class FeatureExtractorSiglip2:
     """
-    Trình trích xuất đặc trưng sử dụng mô hình SigLIP của Google.
-    Lưu ý: Các đặc trưng KHÔNG được chuẩn hóa. Sử dụng tích vô hướng để đo độ tương đồng.
+    Sử dụng mô hình SigLIP đã được fine-tune.
     """
-    FEATURES_FILE = "features_siglip2_train.pkl"
+    # ĐÃ SỬA: Tên file features đồng bộ với evaluate.py
+    FEATURES_FILE = "features_siglip2.pkl"
 
     def __init__(self, device="cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
-        model_name = "google/siglip2-large-patch16-512"
-        self.processor = SiglipProcessor.from_pretrained(model_name)
-        self.model = SiglipModel.from_pretrained(model_name, torch_dtype=torch.float16).to(self.device)
-        print(f"✅ Model SigLIP-v2 loaded. Running on: {self.device.upper()}")
+        # ĐÃ SỬA: Tải model đã fine-tune từ thư mục cục bộ
+        model_name = "./siglip_finetuned_coco"
+
+        if not os.path.exists(model_name):
+            print(f"LỖI: Không tìm thấy thư mục model đã fine-tune '{model_name}'.")
+            print("Vui lòng chạy script fine-tuning trước.")
+            exit(1)
+            
+        try:
+            self.processor = SiglipProcessor.from_pretrained(model_name)
+            self.model = SiglipModel.from_pretrained(model_name, torch_dtype=torch.float16).to(self.device)
+            print(f"✅ Model SigLIP đã fine-tune được tải từ '{model_name}'. Đang chạy trên: {self.device.upper()}")
+        except Exception as e:
+            print(f"LỖI: Không thể tải mô hình từ {model_name}: {e}")
+            exit(1)
 
     def _extract_features(self, inputs, feature_type):
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
-            if feature_type == "image":
-                features = self.model.get_image_features(**inputs)
-            else:
-                features = self.model.get_text_features(**inputs)
+            features = self.model.get_image_features(**inputs) if feature_type == "image" else self.model.get_text_features(**inputs)
         return features.cpu().numpy().flatten()
 
     def extract_image_features(self, img_path_or_pil):
         image = Image.open(img_path_or_pil).convert("RGB") if isinstance(img_path_or_pil, str) else img_path_or_pil.convert("RGB")
         inputs = self.processor(images=image, return_tensors="pt")
+        # Cast inputs to float16 to match model dtype
+        inputs = {k: v.to(dtype=torch.float16) for k, v in inputs.items()}
         return self._extract_features(inputs, "image")
 
     def extract_text_features(self, text):
@@ -81,20 +94,18 @@ class FeatureExtractorSiglip2:
 
 class FeatureExtractorBlip2:
     """
-    Trình trích xuất đặc trưng và sinh caption sử dụng mô hình BLIP-2 của Salesforce.
-    Sử dụng Q-Former để đảm bảo đặc trưng ảnh và văn bản có cùng kích thước (768).
+    Sử dụng mô hình BLIP-2 gốc từ Salesforce (không fine-tune).
     """
     FEATURES_FILE = "features_blip2.pkl"
 
     def __init__(self, device="cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
-        model_name = "Salesforce/blip2-opt-2.7b"
+        model_name = "Salesforce/blip2-opt-6.7b-coco"
         self.processor = AutoProcessor.from_pretrained(model_name)
-        # Sử dụng Blip2ForConditionalGeneration cho sinh caption
         self.model = Blip2ForConditionalGeneration.from_pretrained(model_name, torch_dtype=torch.float16).to(self.device)
         self.dummy_image = torch.zeros(1, 3, 224, 224, dtype=torch.float16).to(self.device)
         self.dummy_input_ids = torch.zeros(1, 1, dtype=torch.long).to(self.device)
-        print(f"✅ Model BLIP-2 loaded. Running on: {self.device.upper()}")
+        print(f"✅ Model BLIP-2 gốc được tải. Đang chạy trên: {self.device.upper()}")
 
     def _normalize(self, features):
         features = features / torch.norm(features, p=2, dim=-1, keepdim=True)
@@ -125,6 +136,7 @@ class FeatureExtractorBlip2:
         caption = self.processor.decode(outputs[0], skip_special_tokens=True)
         return caption.strip()
 
+# Lớp FeatureExtractorDinoV2 giữ nguyên vì không liên quan đến flow này
 class FeatureExtractorDinoV2:
     """
     Trình trích xuất đặc trưng chỉ dành cho HÌNH ẢNH sử dụng DINOv2 của Meta.

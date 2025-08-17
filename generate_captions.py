@@ -1,52 +1,56 @@
-# generate_captions.py
-from feature_extractor import FeatureExtractorBlip2
-from PIL import Image
-import json
 import os
+import json
+from PIL import Image
 from tqdm import tqdm
+from feature_extractor import FeatureExtractorBlip2
 
 # --- Cấu hình ---
-TEST_IMG_DIR = "test2017/"  # Thư mục chứa ảnh COCO Test
-TEST_ANNOTATIONS_FILE = "annotations/image_info_test2017.json"  # Annotations cho COCO Test
-OUTPUT_CAPTIONS_FILE = "annotations/test2017_captions.json"  # File lưu captions
-NUM_IMAGES = 500  # Số lượng ảnh để sinh captions
+DATASET_PATH = "dataset/"  # Đường dẫn đến thư mục chứa ảnh
+OUTPUT_FILE = "db_captions.json" # File để lưu trữ caption
 
-# Khởi tạo Blip2
+print("Bắt đầu quá trình tạo caption cho database...")
+
+# 1. Khởi tạo model BLIP-2
 try:
     fe = FeatureExtractorBlip2()
+    print("✅ Model BLIP-2 đã được tải thành công.")
 except Exception as e:
     print(f"LỖI: Không thể khởi tạo FeatureExtractorBlip2: {e}")
     exit(1)
 
-# Tải danh sách ảnh Test
+# 2. Lấy danh sách tất cả các file ảnh hợp lệ
+valid_extensions = {".jpg", ".jpeg", ".png", ".bmp"}
 try:
-    with open(TEST_ANNOTATIONS_FILE, "r") as f:
-        test_data = json.load(f)
-    test_images = test_data["images"][:NUM_IMAGES]
-except Exception as e:
-    print(f"LỖI: Không thể tải file annotations {TEST_ANNOTATIONS_FILE}: {e}")
+    image_files = [f for f in os.listdir(DATASET_PATH) if os.path.splitext(f)[1].lower() in valid_extensions]
+    if not image_files:
+        print(f"LỖI: Không tìm thấy ảnh nào trong '{DATASET_PATH}'!")
+        exit(1)
+    print(f"Tìm thấy {len(image_files)} ảnh để xử lý.")
+except FileNotFoundError:
+    print(f"LỖI: Thư mục '{DATASET_PATH}' không tồn tại!")
     exit(1)
 
-# Sinh captions
-captions = []
-for img_info in tqdm(test_images, desc="Đang sinh captions"):
-    img_path = os.path.join(TEST_IMG_DIR, img_info["file_name"])
+# 3. Duyệt qua từng ảnh và sinh caption
+database_captions = []
+for img_name in tqdm(image_files, desc="Đang sinh caption"):
+    img_path = os.path.join(DATASET_PATH, img_name)
     try:
         image = Image.open(img_path).convert("RGB")
+        # Sử dụng hàm generate_caption có sẵn trong FeatureExtractorBlip2
         caption = fe.generate_caption(image)
-        captions.append({
-            "image_id": img_info["id"],
-            "file_name": img_info["file_name"],
+        
+        database_captions.append({
+            "image_path": img_path,
             "caption": caption
         })
     except Exception as e:
-        print(f"LỖI: Không thể sinh caption cho {img_path}: {e}")
+        print(f"\nLỗi khi xử lý ảnh {img_path}: {e}")
         continue
 
-# Lưu captions
+# 4. Lưu kết quả ra file JSON
 try:
-    with open(OUTPUT_CAPTIONS_FILE, "w") as f:
-        json.dump(captions, f, indent=4)
-    print(f"Đã lưu {len(captions)} captions vào {OUTPUT_CAPTIONS_FILE}")
+    with open(OUTPUT_FILE, "w", encoding='utf-8') as f:
+        json.dump(database_captions, f, indent=4, ensure_ascii=False)
+    print(f"\n🎉 Hoàn tất! Đã lưu {len(database_captions)} captions vào file '{OUTPUT_FILE}'.")
 except Exception as e:
-    print(f"LỖI: Không thể lưu file {OUTPUT_CAPTIONS_FILE}: {e}")
+    print(f"\nLỖI: Không thể lưu file kết quả '{OUTPUT_FILE}': {e}")
